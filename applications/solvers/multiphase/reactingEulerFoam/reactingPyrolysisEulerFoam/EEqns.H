@@ -26,7 +26,7 @@ for (int Ecorr=0; Ecorr<nEnergyCorrectors; Ecorr++)
 
         if (gasReactionPhases.found(phase.name()))
         {
-            EEqn -= alpha*phases[solidReactionPhases[0]].Qdot();
+            EEqn += alpha*phases[solidReactionPhases[0]].Qdot();
         }
 
         EEqn.relax();
