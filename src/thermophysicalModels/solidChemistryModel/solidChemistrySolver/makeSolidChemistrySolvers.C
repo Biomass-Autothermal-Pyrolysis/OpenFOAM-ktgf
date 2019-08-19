@@ -57,6 +57,14 @@ namespace Foam
         hExpKappaConstSolidThermoPhysics,
         gasHThermoPhysics
     )
+    
+    makeSolidChemistrySolverTypes
+    (
+        pyrolysisChemistryModel,
+        basicSolidChemistryModel,
+        hConstSolidThermoPhysics,
+        constHThermoPhysics
+    )
 }
 
 

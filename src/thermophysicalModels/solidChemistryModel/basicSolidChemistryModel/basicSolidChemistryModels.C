@@ -58,6 +58,25 @@ makeSolidGasChemistryModel
     gasHThermoPhysics
 );
 
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// hConstSolidThermoPhysics
+
+/*makeSolidChemistryModel
+(
+    solidChemistryModel,
+    pyrolysisChemistryModel,
+    basicSolidChemistryModel,
+    hConstSolidThermoPhysics
+);
+
+makeSolidGasChemistryModel
+(
+    solidChemistryModel,
+    pyrolysisChemistryModel,
+    basicSolidChemistryModel,
+    hConstSolidThermoPhysics,
+    constGasHThermoPhysics
+);*/
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 // hPowerSolidThermoPhysics
