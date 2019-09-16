@@ -102,6 +102,9 @@ int main(int argc, char *argv[])
         {
             fluid.solve();
             fluid.correct();
+            
+            //- Solver granular temperature equation if a model uses kintic theory
+            fluid.correctTurbulence(false);
 
             #include "YEqns.H"
 
@@ -122,7 +125,7 @@ int main(int argc, char *argv[])
 
             if (pimple.turbCorr())
             {
-                fluid.correctTurbulence();
+                fluid.correctTurbulence(true);
             }
         }
 

@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
         #include "hEqn.H"
         #include "pEqn.H"
 
-        #include "output_mod.H"
+        #include "output.H"
 
         Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
             << "  ClockTime = " << runTime.elapsedClockTime() << " s"

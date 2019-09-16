@@ -30,6 +30,8 @@ License
 #include "fvcDdt.H"
 #include "localEulerDdtScheme.H"
 
+#include "kineticTheorySystem.H"
+
 #include "dragModel.H"
 #include "BlendedInterfacialModel.H"
 
@@ -142,6 +144,9 @@ Foam::phaseSystem::phaseSystem
 
     phaseModels_(lookup("phases"), phaseModel::iNew(*this)),
 
+    kineticTheoryPtr_(NULL),
+    polydisperseKineticTheory_(false),
+
     phi_(calcPhi(phaseModels_)),
 
     dpdt_
@@ -156,18 +161,7 @@ Foam::phaseSystem::phaseSystem
         dimensionedScalar("dpdt", dimPressure/dimTime, 0)
     ),
 
-    MRF_(mesh_),
-
-    implicitPhasePressure_
-    (
-        mesh_.solverDict
-        (
-            volScalarField(phaseModels_[0]).name()
-        ).lookupOrDefault<Switch>
-        (
-            "implicitPhasePressure", false
-        )
-    )
+    MRF_(mesh_)
 {
     // Groupings
     label movingPhasei = 0;
@@ -233,6 +227,26 @@ Foam::phaseSystem::phaseSystem
     // Sub-models
     generatePairsAndSubModels("surfaceTension", surfaceTensionModels_);
     generatePairsAndSubModels("aspectRatio", aspectRatioModels_);
+
+    // Check if a granular phase is used and store at pointer if it is
+    if (mesh_.foundObject<kineticTheorySystem>("kineticTheorySystem"))
+    {
+        kineticTheoryPtr_ =
+        (
+            &mesh_.lookupObjectRef<kineticTheorySystem>("kineticTheorySystem")
+        );
+
+        // Initialize fields after all granular phases are initialized
+        kineticTheoryPtr_->correct();
+
+        //- If only one granular phase is used, the multiphase limiting is not
+        //  needed so it is skipped
+        if (kineticTheoryPtr_->polydisperse())
+        {
+            polydisperseKineticTheory_ = true;
+        }
+    }
+
 
     // Update motion fields
     correctKinematics();
@@ -432,11 +446,48 @@ void Foam::phaseSystem::correctThermo()
 }
 
 
-void Foam::phaseSystem::correctTurbulence()
+void Foam::phaseSystem::correctTurbulence(const bool postSolve)
 {
-    forAll(phaseModels_, phasei)
+    // If no granular phases exist, only update turbulence if post solve
+    if (!kineticTheoryPtr_)
     {
-        phaseModels_[phasei].correctTurbulence();
+        if (postSolve)
+        {
+            forAll(phaseModels_, phasei)
+            {
+                phaseModels_[phasei].correctTurbulence();
+            }
+        }
+        return;
+    }
+
+    //  Update granular phases before volume fraction transport each pimple
+    //  iteration to improve convergence of fields
+    if (!postSolve)
+    {
+        kineticTheoryPtr_->correct();
+
+        forAll(phaseModels_, phasei)
+        {
+            if (kineticTheoryPtr_->found(phaseModels_[phasei].name()))
+            {
+                phaseModels_[phasei].correctTurbulence();
+            }
+        }
+
+        kineticTheoryPtr_->correct();
+    }
+
+    // Update non granular phases after outer correctors finish
+    if (postSolve)
+    {
+        forAll(phaseModels_, phasei)
+        {
+            if (!kineticTheoryPtr_->found(phaseModels_[phasei].name()))
+            {
+                phaseModels_[phasei].correctTurbulence();
+            }
+        }
     }
 }
 

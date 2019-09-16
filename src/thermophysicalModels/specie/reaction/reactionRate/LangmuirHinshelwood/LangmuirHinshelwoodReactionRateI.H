@@ -64,13 +64,19 @@ inline Foam::scalar Foam::LangmuirHinshelwoodReactionRate::operator()
     const scalarField& c
 ) const
 {
-    const scalar c0m = pow(c[r_[0]], m_[0]);
+    //const scalar c0m = pow(c[r_[0]], m_[0]);
     const scalar c1m = pow(c[r_[1]], m_[1]);
+    const scalar k0 = A_[0]*exp(-Ta_[0]/T);
+    const scalar k1 = A_[1]*exp(-Ta_[1]/T);
 
-    return A_[0]*exp(-Ta_[0]/T)/
+    //return k1*k0*pow(c1m*8.314*T,0.6)/(pow(k1 + k0*pow(c1m*8.314*T,0.6), m_[2]));
+    //return k1*k0*(p*0.21)/(8.314*T)/(pow(k1 + k0*(p*0.21)/(8.314*T), m_[2]));
+    return k1*k0*(p/1000)/(pow(k1 + k0*(p/1000), m_[2]));
+    /*return A_[0]*exp(-Ta_[0]/T)/
     (
         T*pow(a_ + A_[1]*exp(-Ta_[1]/T)*c0m + A_[2]*exp(-Ta_[2]/T)*c1m, m_[2])
-    );
+        //T*pow(A_[0]*exp(-Ta_[0]/T)*p*0.21 + A_[1]*exp(-Ta_[1]/T), m_[2])
+    );*/
 }
 
 

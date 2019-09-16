@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Copyright (C) 2013-2018 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2013-2019 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -25,7 +25,7 @@ License
 
 #include "multiphaseSystem.H"
 #include "alphaContactAngleFvPatchScalarField.H"
-#include "multiphaseKineticTheorySystem.H"
+#include "kineticTheorySystem.H"
 
 #include "MULES.H"
 #include "subCycle.H"
@@ -69,7 +69,10 @@ void Foam::multiphaseSystem::calcAlphas()
 }
 
 
-void Foam::multiphaseSystem::solveAlphas(const bool polydisperse)
+void Foam::multiphaseSystem::solveAlphas
+(
+    const PtrList<surfaceScalarField>& deltaAlphaPhiPs
+)
 {
     forAll(phases(), phasei)
     {
@@ -178,6 +181,10 @@ void Foam::multiphaseSystem::solveAlphas(const bool polydisperse)
                 phirScheme
             );
         }
+        if (deltaAlphaPhiPs.set(phase.index()))
+        {
+            alphaPhiCorr += deltaAlphaPhiPs[phase.index()];
+        }
 
         phase.correctInflowOutflow(alphaPhiCorr);
 
@@ -195,55 +202,46 @@ void Foam::multiphaseSystem::solveAlphas(const bool polydisperse)
         );
     }
 
-    // Limit total granular flux
-    if(polydisperse)
-    {
-        multiphaseKineticTheorySystem& kineticTheoryModel =
-            mesh_.lookupObjectRef<multiphaseKineticTheorySystem>
-            (
-                "kineticTheorySystem"
-            );
-
-        kineticTheoryModel.correctAlphap();
-        const volScalarField& alphap(kineticTheoryModel.alphap());
-        const volScalarField& alphaMax(kineticTheoryModel.alphaMax());
-        const wordList& granularPhases(kineticTheoryModel.phases());
-        labelList granularIndicies(granularPhases.size());
-
-        PtrList<surfaceScalarField> alphaPhips(granularPhases.size());
-        forAll(granularPhases, phasei)
-        {
-            alphaPhips.set
-            (
-                phasei,
-                alphaPhiCorrs[phases()[granularPhases[phasei]].index()]
-            );
-        }
-
-        MULES::limitSum
-        (
-            alphap,
-            phi_,
-            alphaPhips,
-            alphaMax.internalField(),
-            scalarField(alphaMax.size(), 0.0)
-        );
-
-        forAll(granularPhases, phasei)
-        {
-            alphaPhiCorrs[phases()[granularPhases[phasei]].index()] =
-                alphaPhips[phasei];
-        }
-    }
-//     MULES::limitSum(alphaPhiCorrs);
-
-
     // Limit the flux sums, fixing those of the stationary phases
     labelHashSet fixedAlphaPhiCorrs;
     forAll(stationaryPhases(), stationaryPhasei)
     {
         fixedAlphaPhiCorrs.insert(stationaryPhases()[stationaryPhasei].index());
     }
+
+    // Limit total granular flux
+    if(polydisperseKineticTheory_)
+    {
+        kineticTheoryPtr_->correctAlphap();
+        const volScalarField& alphap(kineticTheoryPtr_->alphap());
+        const volScalarField& alphaMax(kineticTheoryPtr_->alphaMax());
+        const labelList& granularIndexes(kineticTheoryPtr_->phaseIndexes());
+
+        UPtrList<surfaceScalarField> alphaPhiCorrPs(granularIndexes.size());
+        forAll(granularIndexes, phasei)
+        {
+
+            //- Use tmp so alphaPhiCorr is not deleted upon exit
+            alphaPhiCorrPs.set
+            (
+                phasei,
+                &alphaPhiCorrs[granularIndexes[phasei]]
+            );
+
+            // Fix alphaPhi of the granular phases
+            fixedAlphaPhiCorrs.insert(granularIndexes[phasei]);
+        }
+
+        MULES::limitSum
+        (
+            alphap,
+            phi_,
+            alphaPhiCorrPs,
+            min(alphaVoid.primitiveField(), alphaMax.internalField())(),
+            scalarField(alphaMax.size(), 0.0)
+        );
+    }
+
     MULES::limitSum(alphafs, alphaPhiCorrs, fixedAlphaPhiCorrs);
 
     // Solve for the moving phase alphas
@@ -348,6 +346,26 @@ void Foam::multiphaseSystem::solveAlphas(const bool polydisperse)
             << ' ' << max(phase).value()
             << endl;
     }
+    if (polydisperseKineticTheory_)
+    {
+        kineticTheoryPtr_->correctAlphap();
+        const volScalarField& alphap = kineticTheoryPtr_->alphap();
+        Info<< kineticTheoryPtr_->name() << " fraction, min, max = "
+            << alphap.weightedAverage(mesh_.V()).value()
+            << ' ' << min(alphap).value()
+            << ' ' << max(alphap).value()
+            << endl;
+
+        volScalarField alphaPbyAlphaMax
+        (
+            kineticTheoryPtr_->alphap()/kineticTheoryPtr_->alphaMax()
+        );
+        Info<< kineticTheoryPtr_->name() << " packing fraction, min, max = "
+            << alphaPbyAlphaMax.weightedAverage(mesh_.V()).value()
+            << ' ' << min(alphaPbyAlphaMax).value()
+            << ' ' << max(alphaPbyAlphaMax).value()
+            << endl;
+    }
 
     volScalarField sumAlphaMoving
     (
@@ -363,25 +381,6 @@ void Foam::multiphaseSystem::solveAlphas(const bool polydisperse)
     forAll(movingPhases(), movingPhasei)
     {
         sumAlphaMoving += movingPhases()[movingPhasei];
-    }
-
-    //- Final correction of total granular volume fraction
-    if(polydisperse)
-    {
-        multiphaseKineticTheorySystem& kineticTheoryModel =
-            mesh_.lookupObjectRef<multiphaseKineticTheorySystem>
-            (
-                "kineticTheorySystem"
-            );
-
-        kineticTheoryModel.correctAlphap();
-        const volScalarField& alphap = kineticTheoryModel.alphap();
-
-        Info<< alphap.group() << " volume fraction, min, max = "
-            << alphap.weightedAverage(mesh_.V()).value()
-            << ' ' << min(alphap).value()
-            << ' ' << max(alphap).value()
-            << endl;
     }
 
     Info<< "Phase-sum volume fraction, min, max = "
@@ -582,7 +581,7 @@ Foam::multiphaseSystem::multiphaseSystem
             IOobject::AUTO_WRITE
         ),
         mesh,
-        dimensionedScalar("alphas", dimless, 0.0)
+        dimensionedScalar("alphas", dimless, 0)
     ),
 
     cAlphas_(lookup("interfaceCompression")),
@@ -697,23 +696,13 @@ void Foam::multiphaseSystem::solve()
 
     const dictionary& alphaControls = mesh_.solverDict("alpha");
     label nAlphaSubCycles(readLabel(alphaControls.lookup("nAlphaSubCycles")));
+    label nAlphaCorr(readLabel(alphaControls.lookup("nAlphaCorr")));
 
     bool LTS = fv::localEulerDdt::enabled(mesh_);
 
-    bool polydisperse =
-    mesh_.foundObject<multiphaseKineticTheorySystem>
-    (
-        "kineticTheorySystem"
-    );
-
-    if (polydisperse)
-    {
-        polydisperse =
-        mesh_.lookupObject<multiphaseKineticTheorySystem>
-        (
-            "kineticTheorySystem"
-        ).polydisperse();
-    }
+    PtrList<surfaceScalarField> alphaDbyAs(phases().size());
+    PtrList<surfaceScalarField> alphaPhiPs(phases().size());
+    PtrList<surfaceScalarField> deltaAlphaPhiPs(phases().size());
 
     forAll(phases(), phasei)
     {
@@ -723,114 +712,176 @@ void Foam::multiphaseSystem::solve()
         {
             const volScalarField& alpha = phase;
             surfaceScalarField DbyA(*DByAfs()[phase.name()]);
+            surfaceScalarField alphaf(fvc::interpolate(max(alpha, scalar(0))));
 
-            surfaceScalarField alphaDbyA
-            (
-                IOobject::groupName("alphaDbyA", phase.name()),
-                fvc::interpolate(max(alpha, scalar(0)))
-                *fvc::interpolate(max(1.0 - alpha, scalar(0)))
-                *DbyA
-            );
-
-            fvScalarMatrix alphaEqn
-            (
-                fvm::ddt(alpha)
-              - fvm::laplacian(alphaDbyA, alpha, "bounded")
-            );
-
-            alphaEqn.relax();
-            alphaEqn.solve();
-
-            // Revert to old alpha, and correct granular flux
-            phases()[phasei] == alpha.oldTime();
-            phases()[phasei].alphaPhiRef() +=
-                (
-                    alphaEqn.flux()
-                  + alphaDbyA*fvc::snGrad(alpha, "bounded")*mesh_.magSf()
-                );
-        }
-    }
-
-    if (nAlphaSubCycles > 1)
-    {
-        tmp<volScalarField> trSubDeltaT;
-
-        if (LTS)
-        {
-            trSubDeltaT =
-                fv::localEulerDdt::localRSubDeltaT(mesh_, nAlphaSubCycles);
-        }
-
-        PtrList<volScalarField> alpha0s(phases().size());
-        PtrList<surfaceScalarField> alphaPhiSums(phases().size());
-
-        forAll(phases(), phasei)
-        {
-            phaseModel& phase = phases()[phasei];
-            volScalarField& alpha = phase;
-
-            alpha0s.set
-            (
-                phasei,
-                new volScalarField(alpha.oldTime())
-            );
-
-            alphaPhiSums.set
+            alphaDbyAs.set
             (
                 phasei,
                 new surfaceScalarField
                 (
-                    IOobject
+                    IOobject::groupName("alphaDbyA", phase.name()),
+                    alphaf
+                   *max(1.0 - alphaf, scalar(0))
+                   *DbyA
+                )
+            );
+            alphaPhiPs.set
+            (
+                phasei,
+                new surfaceScalarField
+                (
+                    IOobject::groupName
                     (
-                        "phiSum" + alpha.name(),
-                        runTime.timeName(),
-                        mesh_
+                        "alphaPhiP",
+                        phase.name()
                     ),
-                    mesh_,
-                    dimensionedScalar("0", dimensionSet(0, 3, -1, 0, 0), 0)
+                    DbyA
+                   *fvc::snGrad(alpha, "bounded")
+                   *mesh_.magSf()
                 )
             );
         }
 
-        for
+        deltaAlphaPhiPs.set
         (
-            subCycleTime alphaSubCycle
+            phasei,
+            new surfaceScalarField
             (
-                const_cast<Time&>(runTime),
-                nAlphaSubCycles
-            );
-            !(++alphaSubCycle).end();
-        )
-        {
-            solveAlphas(polydisperse);
+                IOobject
+                (
+                    IOobject::groupName
+                    (
+                        "deltaAlphaPhiP",
+                        phase.name()
+                    ),
+                    mesh_.time().timeName(),
+                    mesh_
+                ),
+                mesh_,
+                dimensionedScalar("deltaAlphaPhiP", dimensionSet(0, 3, -1, 0, 0), 0)
+            )
+        );
+    }
 
-            forAll(phases(), phasei)
+    for (label corri = 0; corri < nAlphaCorr; corri++)
+    {
+        // Correct particle phase fluxes
+        forAll(phases(), phasei)
+        {
+            const phaseModel& phase = phases()[phasei];
+
+            if (alphaDbyAs.set(phasei))
             {
-                alphaPhiSums[phasei] += phases()[phasei].alphaPhi();
+                const volScalarField& alpha = phase;
+                volScalarField alphaOld(alpha);
+                word alpharScheme("div(phir," + alpha.name() + ')');
+
+                fvScalarMatrix alphaEqn
+                (
+                    fvm::ddt(alpha)
+                  - fvc::ddt(alpha)
+                  + fvc::div
+                    (
+                        -fvc::flux
+                        (
+                                -alphaPhiPs[phasei],
+                                scalar(1) - alpha,
+                                alpharScheme
+                        ),
+                        alpha,
+                        alpharScheme
+                    )
+                  - fvm::laplacian(alphaDbyAs[phasei], alpha, "bounded")
+                );
+                alphaEqn.relax();
+                alphaEqn.solve();
+
+                deltaAlphaPhiPs[phasei] = alphaEqn.flux();
+                refCast<volScalarField>(phases()[phasei]) = alphaOld;
             }
         }
 
-        forAll(phases(), phasei)
+        if (nAlphaSubCycles > 1)
         {
-            phaseModel& phase = phases()[phasei];
-            if (phase.stationary()) continue;
+            tmp<volScalarField> trSubDeltaT;
 
-            volScalarField& alpha = phase;
+            if (LTS)
+            {
+                trSubDeltaT =
+                    fv::localEulerDdt::localRSubDeltaT(mesh_, nAlphaSubCycles);
+            }
 
-            phase.alphaPhiRef() = alphaPhiSums[phasei]/nAlphaSubCycles;
+            PtrList<volScalarField> alpha0s(phases().size());
+            PtrList<surfaceScalarField> alphaPhiSums(phases().size());
 
-            // Correct the time index of the field
-            // to correspond to the global time
-            alpha.timeIndex() = runTime.timeIndex();
+            forAll(phases(), phasei)
+            {
+                phaseModel& phase = phases()[phasei];
+                volScalarField& alpha = phase;
 
-            // Reset the old-time field value
-            alpha.oldTime() = alpha0s[phasei];
-            alpha.oldTime().timeIndex() = runTime.timeIndex();
+                alpha0s.set
+                (
+                    phasei,
+                    new volScalarField(alpha.oldTime())
+                );
+
+                alphaPhiSums.set
+                (
+                    phasei,
+                    new surfaceScalarField
+                    (
+                        IOobject
+                        (
+                            "phiSum" + alpha.name(),
+                            runTime.timeName(),
+                            mesh_
+                        ),
+                        mesh_,
+                        dimensionedScalar("0", dimensionSet(0, 3, -1, 0, 0), 0)
+                    )
+                );
+            }
+
+            for
+            (
+                subCycleTime alphaSubCycle
+                (
+                    const_cast<Time&>(runTime),
+                    nAlphaSubCycles
+                );
+                !(++alphaSubCycle).end();
+            )
+            {
+                solveAlphas(deltaAlphaPhiPs);
+
+                forAll(phases(), phasei)
+                {
+                    alphaPhiSums[phasei] += phases()[phasei].alphaPhi();
+                }
+            }
+
+            forAll(phases(), phasei)
+            {
+                phaseModel& phase = phases()[phasei];
+                if (phase.stationary()) continue;
+
+                volScalarField& alpha = phase;
+
+                phase.alphaPhiRef() = alphaPhiSums[phasei]/nAlphaSubCycles;
+
+                // Correct the time index of the field
+                // to correspond to the global time
+                alpha.timeIndex() = runTime.timeIndex();
+
+                // Reset the old-time field value
+                alpha.oldTime() = alpha0s[phasei];
+                alpha.oldTime().timeIndex() = runTime.timeIndex();
+            }
         }
-    }
-    else
-    {
-        solveAlphas(polydisperse);
+        else
+        {
+            solveAlphas(deltaAlphaPhiPs);
+        }
     }
 
     forAll(phases(), phasei)

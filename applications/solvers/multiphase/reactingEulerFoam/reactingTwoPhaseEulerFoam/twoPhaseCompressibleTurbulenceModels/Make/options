@@ -1,12 +1,12 @@
 EXE_INC = \
     -I../twoPhaseSystem/lnInclude \
+    -I../../kineticTheoryModels/lnInclude \
     -I../../phaseSystems/lnInclude \
-    -I../../interfacialModels/lnInclude \
+    -I../../interfacialModels/lnInclude\
     -I../../interfacialCompositionModels/lnInclude \
     -I../../derivedFvPatchFields/lnInclude \
     -I$(LIB_SRC)/transportModels/compressible/lnInclude \
     -I$(LIB_SRC)/thermophysicalModels/basic/lnInclude \
-    -I$(LIB_SRC)/thermophysicalModels/solidThermo/lnInclude \
     -I$(LIB_SRC)/transportModels/incompressible/transportModel \
     -I$(LIB_SRC)/TurbulenceModels/compressible/lnInclude \
     -I$(LIB_SRC)/TurbulenceModels/turbulenceModels/lnInclude \
@@ -15,10 +15,9 @@ EXE_INC = \
     -I$(LIB_SRC)/meshTools/lnInclude
 
 LIB_LIBS = \
-    -lsolidThermo \
-    -lreactingPhaseSystem \
-    -lfluidThermophysicalModels \
     -lreactingTwoPhaseSystem \
+    -lreactingPhaseSystem \
+    -lreactingKineticTheoryModels \
     -lreactingEulerianInterfacialModels \
     -lreactingEulerianInterfacialCompositionModels \
     -lreactingEulerianFvPatchFields \

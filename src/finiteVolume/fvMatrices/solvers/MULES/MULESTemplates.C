@@ -224,6 +224,20 @@ void Foam::MULES::limiter
         MULEScontrols.lookupOrDefault<scalar>("extremaCoeff", 0)
     );
 
+    const scalar boundaryExtremaCoeff
+    (
+        MULEScontrols.lookupOrDefault<scalar>
+        (
+            "boundaryExtremaCoeff",
+            extremaCoeff
+        )
+    );
+
+    //const scalar boundaryDeltaExtremaCoeff
+    (
+        max(boundaryExtremaCoeff - extremaCoeff, 0)
+    );
+
     const scalarField& psi0 = psi.oldTime();
 
     const labelUList& owner = mesh.owner();
@@ -666,111 +680,6 @@ void Foam::MULES::limit
 }
 
 
-template<class PsiMaxType, class PsiMinType>
-void Foam::MULES::limitSum
-(
-    const volScalarField& psi,
-    const surfaceScalarField& phi,
-    PtrList<surfaceScalarField>& phiPsis,
-    const PsiMaxType& psiMax,
-    const PsiMinType& psiMin
-)
-{
-    const fvMesh& mesh = phi.mesh();
-
-    surfaceScalarField phiPsi
-    (
-        IOobject
-        (
-            "phiPsi",
-            mesh.time().timeName(),
-            mesh
-        ),
-        mesh,
-        dimensionedScalar("0", phi.dimensions(), 0.0)
-    );
-
-    surfaceScalarField phiBD(upwind<scalar>(psi.mesh(), phi).flux(psi));
-
-    surfaceScalarField::Boundary& phiBDBf = phiBD.boundaryFieldRef();
-    const surfaceScalarField::Boundary& phiPsiBf = phiPsi.boundaryField();
-
-    forAll(phiBDBf, patchi)
-    {
-        fvsPatchScalarField& phiBDPf = phiBDBf[patchi];
-
-        if (!phiBDPf.coupled())
-        {
-            phiBDPf = phiPsiBf[patchi];
-        }
-    }
-
-    forAll(phiPsis, phasei)
-    {
-        phiPsi += phiPsis[phasei];
-    }
-
-    scalarField allLambda(mesh.nFaces(), 1.0);
-
-    slicedSurfaceScalarField lambda
-    (
-        IOobject
-        (
-            "lambda",
-            mesh.time().timeName(),
-            mesh,
-            IOobject::NO_READ,
-            IOobject::NO_WRITE,
-            false
-        ),
-        mesh,
-        dimless,
-        allLambda,
-        false   // Use slices for the couples
-    );
-
-    if (fv::localEulerDdt::enabled(mesh))
-    {
-        const volScalarField& rDeltaT = fv::localEulerDdt::localRDeltaT(mesh);
-        limiter
-        (
-            allLambda,
-            rDeltaT,
-            geometricOneField(),
-            psi,
-            phiBD,
-            phiPsi,
-            geometricZeroField(),
-            geometricZeroField(),
-            psiMax,
-            psiMin
-        );
-    }
-    else
-    {
-        const scalar rDeltaT = 1.0/mesh.time().deltaTValue();
-        limiter
-        (
-            allLambda,
-            rDeltaT,
-            geometricOneField(),
-            psi,
-            phiBD,
-            phiPsi,
-            geometricZeroField(),
-            geometricZeroField(),
-            psiMax,
-            psiMin
-        );
-    }
-
-    forAll(phiPsis, phasei)
-    {
-        phiPsis[phasei] *= lambda;
-    }
-}
-
-
 template<class SurfaceScalarFieldList>
 void Foam::MULES::limitSum(SurfaceScalarFieldList& phiPsiCorrs)
 {
@@ -805,6 +714,7 @@ void Foam::MULES::limitSum(SurfaceScalarFieldList& phiPsiCorrs)
         }
     }
 }
+
 
 template<class SurfaceScalarFieldList>
 void Foam::MULES::limitSum
@@ -857,6 +767,110 @@ void Foam::MULES::limitSum
 
             limitSum(alphasPatch, phiPsiCorrsPatch, fixed);
         }
+    }
+}
+
+template
+<
+    class PsiMaxType,
+    class PsiMinType,
+    class SurfaceScalarFieldList
+>
+void Foam::MULES::limitSum
+(
+    const volScalarField& psi,
+    const surfaceScalarField& phi,
+    SurfaceScalarFieldList& phiCorrs,
+    const PsiMaxType& psiMax,
+    const PsiMinType& psiMin
+)
+{
+    const fvMesh& mesh = phi.mesh();
+
+    surfaceScalarField phiCorr("phiCorr", phiCorrs[0]);
+    for (label i = 0; i < phiCorrs.size(); i++)
+    {
+        phiCorr += phiCorrs[i];
+    }
+
+    surfaceScalarField phiBD
+    (
+        "phiBD",
+        upwind<scalar>(psi.mesh(), phi).flux(psi)
+    );
+    surfaceScalarField::Boundary& phiBDBf = phiBD.boundaryFieldRef();
+    const surfaceScalarField::Boundary& phiCorrBf =
+        phiCorr.boundaryField();
+
+    forAll(phiBDBf, patchi)
+    {
+        fvsPatchScalarField& phiBDPf = phiBDBf[patchi];
+
+        if (!phiBDPf.coupled())
+        {
+            phiBDPf = phiCorrBf[patchi];
+        }
+    }
+
+    scalarField allLambda(mesh.nFaces(), 1.0);
+
+    slicedSurfaceScalarField lambda
+    (
+        IOobject
+        (
+            "lambda",
+            mesh.time().timeName(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE,
+            false
+        ),
+        mesh,
+        dimless,
+        allLambda,
+        false   // Use slices for the couples
+    );
+
+    if (fv::localEulerDdt::enabled(mesh))
+    {
+        const volScalarField& rDeltaT = fv::localEulerDdt::localRDeltaT(mesh);
+        limiter
+        (
+            allLambda,
+            rDeltaT,
+            geometricOneField(),
+            psi,
+            phiBD,
+            phiCorr,
+            geometricZeroField(),
+            geometricZeroField(),
+            psiMax,
+            psiMin
+        );
+    }
+    else
+    {
+        const scalar rDeltaT = 1.0/mesh.time().deltaTValue();
+        limiter
+        (
+            allLambda,
+            rDeltaT,
+            geometricOneField(),
+            psi,
+            phiBD,
+            phiCorr,
+            geometricZeroField(),
+            geometricZeroField(),
+            psiMax,
+            psiMin
+        );
+    }
+
+    //- Phases have already have the upwind flux removed with initial single phase
+    //  limiting
+    forAll(phiCorrs, i)
+    {
+        phiCorrs[i] *= lambda;
     }
 }
 
