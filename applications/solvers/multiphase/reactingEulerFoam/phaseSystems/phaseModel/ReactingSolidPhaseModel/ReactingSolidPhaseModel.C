@@ -150,6 +150,7 @@ Foam::ReactingSolidPhaseModel
     GasReactionType
 >::Qdot(const bool local) const
 {
+    
     tmp<volScalarField> tQdot
     (
         new volScalarField
@@ -167,11 +168,23 @@ Foam::ReactingSolidPhaseModel
             dimensionedScalar("Qdot", dimEnergy/dimVolume/dimTime, 0.0)
         )
     );
-
-    tQdot.ref() = chemistryPtr_->Qdot();
-    if (!local)
+    
+    
+    if (local)
     {
-        tQdot.ref() *= -(*this);
+        tQdot.ref() = chemistryPtr_->Qdot();
+    }
+    else
+    {
+        forAll(chemistryPtr_->gasTable(), specieI)
+        {
+            forAll(tQdot(), cellI)
+            {
+                scalar hf = gasThermo_.composition().Hc(specieI);
+                tQdot.ref()[cellI] -= hf*chemistryPtr_->RRg(specieI)[cellI];
+            }
+        }
+        tQdot.ref() *= (*this);
     }
 
     return tQdot;
@@ -209,7 +222,6 @@ Foam::ReactingSolidPhaseModel
         )
     );
     volScalarField& dmdt = tdmdt.ref();
-
     if (local)
     {
         label nSpecies =

@@ -23,10 +23,12 @@ for (int Ecorr=0; Ecorr<nEnergyCorrectors; Ecorr++)
           + alpha*rho*(U&g)
           + fvOptions(alpha, rho, phase.thermoRef().he())
         );
-
-        if (gasReactionPhases.found(phase.name()))
+        
+        
+        
+        if (solidReactionPhases.found(phase.name()))
         {
-            EEqn += alpha*phases[solidReactionPhases[0]].Qdot();
+            EEqn += phases[solidReactionPhases[0]].Qdot(false);
         }
 
         EEqn.relax();
