@@ -135,7 +135,6 @@ Foam::solidChemistryModel<CompType, SolidThermo>::Qdot() const
     if (this->chemistry_)
     {
         scalarField& Qdot = tQdot.ref();
-
         forAll(Ys_, i)
         {
             forAll(Qdot, celli)

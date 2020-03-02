@@ -58,13 +58,13 @@ namespace Foam
         gasHThermoPhysics
     )
     
-    makeSolidChemistrySolverTypes
+    /*makeSolidChemistrySolverTypes
     (
         pyrolysisChemistryModel,
         basicSolidChemistryModel,
         hConstSolidThermoPhysics,
         constHThermoPhysics
-    )
+    )*/
 }
 
 
