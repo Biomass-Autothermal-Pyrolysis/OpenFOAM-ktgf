@@ -1,0 +1,866 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  dev
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+convertToMeters 0.001;
+
+D    38.1; // Diameter of main pipe
+R    #calc "$D/2"; // Radius of main pipe
+
+d    12.7; // Diameter of auger
+r    #calc "$d/2"; // Radius of auger
+
+H    250; //Height of pipe
+h    85; //height of obstruction
+
+h0   0; // Base of pipe
+h1   #calc "$h-$r/pow(2,0.5)"; //height to bottom of auger
+h2   #calc "$h+$r/pow(2,0.5)"; //height to top of auger
+
+Sp    9; // Inner square of main pipe (half of square side length)
+Sm    -9; // Inner square of main pipe (half of square side length)
+SSp   7;
+sp    #calc "$r/($R/($SSp))"; //Inner square auger
+sm    #calc "-1*$sp"; //
+
+Sc    11; //inner square curve
+Scm   -11; //Negative coordinate
+SSc   8;//
+sc    #calc "$r/($R/($SSc))"; //Inner square curve small pipe
+scm   #calc "-1*$sc";
+hsc   #calc "$h+$sc"; //coordinate for arc point above small circle center
+hscm  #calc "$h+$scm";//coordinate for arc point bellow small circle center
+
+Xp    #calc "$R/pow(2,0.5)"; // Positive X coordinate for circle
+Xm    #calc "-1*$R/pow(2,0.5)"; // Negative X coordinate for circle
+Yp    #calc "$R/pow(2,0.5)"; // Positve Y coordinate for circle
+Ym    #calc "-1*$R/pow(2,0.5)"; // Neagtive Y coordinate for circle
+
+
+bp    #calc "$r/pow(2,0.5)"; // Postive coordinate of augur projection in y
+bm    #calc "-1*$r/pow(2,0.5)"; // negative coordinate of augur projection in y
+ap    #calc "pow((pow($R,2)-pow($bp,2)),0.5)"; //Positive coordinate for augur projection in x till main cylinder
+am    #calc "-1*$ap"; //Negative coordinate for augur projection in x
+
+Rm    #calc "-1*$R"; //negative coordinate for radius
+rm    #calc "-1*$r";
+
+zp    #calc "$h+$sp";  //coordinate above h small square in z
+zm    #calc "$h-$sp";  //coordinate bellw h small square in z
+
+x     #calc "pow((pow($R,2)-pow($sp,2)),0.5)"; //Coordinate in small square in x
+
+// Cells
+
+cellSize  1;
+cellSize1 #calc "$cellSize*1.25";
+cellSize2 #calc "$cellSize*2";
+cellSize3 #calc "$cellSize";
+
+ax    #calc "round($Sp/$cellSize)";
+ay    #calc "round(($Sp-$bp)/$cellSize)";
+ex    #calc "round(($R-$Sp)/$cellSize)";
+ey    #calc "$ay";
+ix    #calc "$ax";
+iy    #calc "$ex";
+nx    #calc "$ax";
+ny    #calc "round(2*$bp/$cellSize)";
+mx    #calc "$ex";
+my    #calc "$ny";
+
+zh1   #calc "round($h1/$cellSize1)";
+zh2   #calc "round(($h2-$h1)/$cellSize1)";
+zH    #calc "round(($H-$h2)/$cellSize2)";
+
+ic    #calc "round(($r-$sp)/$cellSize1)";
+
+// Arc points
+pi     3.141529;
+a30    #calc "30*$pi/180";
+a67    #calc "67.5*$pi/180";
+a112   #calc "112.5*$pi/180";
+a150   #calc "150*$pi/180";
+a210   #calc "210*$pi/180";
+a247   #calc "247.5*$pi/180";
+a292   #calc "292.5*$pi/180";
+a330   #calc "330*$pi/180";
+
+x30    #calc "$R*cos($a30)";
+y30    #calc "$R*sin($a30)";
+x67    #calc "$R*cos($a67)";
+y67    #calc "$R*sin($a67)";
+x112    #calc "$R*cos($a112)";
+y112    #calc "$R*sin($a112)";
+x150    #calc "$R*cos($a150)";
+y150    #calc "$R*sin($a150)";
+x210    #calc "$R*cos($a210)";
+y210    #calc "$R*sin($a210)";
+x247    #calc "$R*cos($a247)";
+y247    #calc "$R*sin($a247)";
+x292    #calc "$R*cos($a292)";
+y292    #calc "$R*sin($a292)";
+x330    #calc "$R*cos($a330)";
+y330    #calc "$R*sin($a330)";
+
+rt   #calc "$h+$r"; //top point of small pipe
+rb   #calc "$h-$r"; //bottom point of small pipe
+rl   #calc "-1*pow((pow($R,2)-pow($r,2)),0.5)";
+
+//For arcs inner square north and south side
+diag   #calc "pow((pow($Sp,2)+pow($Sc-$Sp,0.5)),0.5)"; //length of diagnoal
+rad    #calc "pow($diag,2)*0.5/($Sc-$Sp)"; // radius of curvature
+theta  #calc "asin($Sp/$rad)/2"; 
+cxp     #calc "$rad*sin($theta)"; //x coordinate of arc point
+cxm	#calc "-1*$cxp";
+cyp	#calc "$rad*cos($theta)-($rad-$Sc)"; //y coordinate pf arc point
+cym     #calc "-1*$cyp";
+
+//East and west
+Se   #calc "pow(pow($rad,2)-pow($bp,2),0.5)-($rad-$Sc)"; //x coorindate for length till arc of inner circle
+Sem  #calc "-1*$Se";
+se   #calc "pow(pow($rad,2)-pow($sp,2),0.5)-($rad-$Sc)"; //x coorindate for length till arc of inner circle for small square
+//sem  #calc "-1*$se";
+theta1 #calc "($theta+asin($bp/$rad))/2";
+wxp     #calc "$rad*cos($theta1)-($rad-$Sc)"; //x coordinate of arc point
+wxm	#calc "-1*$wxp";
+wyp	#calc "$rad*sin($theta1)"; //y coordinate pf arc point
+wym     #calc "-1*$wyp";
+
+//Grading
+gr   0.3333; //wall refinement positive quadrant
+gl   #calc "1/$gr"; //wall refinement negative quadrant
+
+gr1  0.75; //small pipe refinment in y
+gl1  #calc "1/$gr1";
+
+gr2  1.75; //for small pipe inlet
+
+//z gradiing below small pipe
+B1y1  0.8;
+B1y2  #calc "1-$B1y1";
+B1n1  0.8;
+B1n2  #calc "1-$B1n1";
+B1gr  1;
+
+B2y1 0.4;
+B2y2 #calc "1-$B2y1";
+B2n1 0.6;
+B2n2 #calc "1-$B2n1";
+B2gr 1;
+
+vertices
+(
+// Base level
+
+    ($Sp $Sm $h0) //0
+    ($Sp $Sp $h0) //1
+    ($Sm $Sp $h0) //2
+    ($Sm $Sm $h0) //3
+    ($Xp $Ym $h0) //4
+    ($Xp $Yp $h0) //5
+    ($Xm $Yp $h0) //6
+    ($Xm $Ym $h0) //7
+    ($Se $bm $h0) //8
+    ($Se $bp $h0) //9
+    (0 $Sc $h0) //10
+    ($Sem $bp $h0) //11
+    ($Sem $bm $h0) //12
+    (0 $Scm $h0) //13
+    (0 $bm $h0) //14
+    (0 $bp $h0) //15
+    ($ap $bm $h0) //16
+    ($ap $bp $h0) //17
+    (0 $R $h0) //18
+    ($am $bp $h0) //19
+    ($am $bm $h0) //20
+    (0 $Rm $h0) //21
+
+//Height just below auger
+
+    ($Sp $Sm $h1) //22
+    ($Sp $Sp $h1) //23
+    ($Sm $Sp $h1) //24
+    ($Sm $Sm $h1) //25
+    ($Xp $Ym $h1) //26
+    ($Xp $Yp $h1) //27
+    ($Xm $Yp $h1) //28
+    ($Xm $Ym $h1) //29
+    ($Se $bm $h1) //30
+    ($Se $bp $h1) //31
+    (0 $Sc $h1) //32
+    ($Sem $bp $h1) //33
+    ($Sem $bm $h1) //34
+    (0 $Scm $h1) //35
+    (0 $bm $h1) //36
+    (0 $bp $h1) //37
+    ($ap $bm $h1) //38
+    ($ap $bp $h1) //39
+    (0 $R $h1) //40
+    ($am $bp $h1) //41
+    ($am $bm $h1) //42
+    (0 $Rm $h1) //43
+
+//Height just above augur
+
+    ($Sp $Sm $h2) //44
+    ($Sp $Sp $h2) //45
+    ($Sm $Sp $h2) //46
+    ($Sm $Sm $h2) //47
+    ($Xp $Ym $h2) //48
+    ($Xp $Yp $h2) //49
+    ($Xm $Yp $h2) //50
+    ($Xm $Ym $h2) //51
+    ($Se $bm $h2) //52
+    ($Se $bp $h2) //53
+    (0 $Sc $h2) //54
+    ($Sem $bp $h2) //55
+    ($Sem $bm $h2) //56
+    (0 $Scm $h2) //57
+    (0 $bm $h2) //58
+    (0 $bp $h2) //59
+    ($ap $bm $h2) //60
+    ($ap $bp $h2) //61
+    (0 $R $h2) //62
+    ($am $bp $h2) //63
+    ($am $bm $h2) //64
+    (0 $Rm $h2) //65
+
+//Top
+
+    ($Sp $Sm $H) //66
+    ($Sp $Sp $H) //67
+    ($Sm $Sp $H) //68
+    ($Sm $Sm $H) //69
+    ($Xp $Ym $H) //70
+    ($Xp $Yp $H) //71
+    ($Xm $Yp $H) //72
+    ($Xm $Ym $H) //73
+    ($Se $bm $H) //74
+    ($Se $bp $H) //75
+    (0 $Sc $H) //76
+    ($Sem $bp $H) //77
+    ($Sem $bm $H) //78
+    (0 $Scm $H) //79
+    (0 $bm $H) //80
+    (0 $bp $H) //81
+    ($ap $bm $H) //82
+    ($ap $bp $H) //83
+    (0 $R $H) //84
+    ($am $bp $H) //85
+    ($am $bm $H) //86
+    (0 $Rm $H) //87
+
+//small square
+
+    (0 $sm $zm) //88
+    (0 $sm $zp) //89
+    (0 $sp $zp) //90
+    (0 $sp $zm) //91
+
+    ($se $sm $zm) //92
+    ($se $sm $zp) //93
+    ($se $sp $zp) //94
+    ($se $sp $zm) //95
+
+    ($x $sm $zm) //96
+    ($x $sm $zp) //97
+    ($x $sp $zp) //98
+    ($x $sp $zm) //99
+);
+
+blocks
+(
+//Below auger
+hex (13 0 8 14 35 22 30 36) ($ax $ay $zh1) 
+    simpleGrading 
+	(
+	    $gr2 
+	    $gr1 
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr) 
+	    )
+	) //a
+hex (15 9 1 10 37 31 23 32) ($ax $ay $zh1) 
+    simpleGrading 
+	(
+	    $gr2 
+	    $gl1 
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr)		
+	    )
+	) //b 
+hex (11 15 10 2 33 37 32 24) ($ax $ay $zh1) 
+    simpleGrading 
+	(
+	    1 
+	    $gl1
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr)		
+	    )
+	) //c
+hex (3 13 14 12 25 35 36 34) ($ax $ay $zh1) 
+    simpleGrading 
+	(
+	    1 
+	    $gr1 
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr)		
+	    )
+	) //d
+hex (0 4 16 8 22 26 38 30) ($ex $ey $zh1) 
+    simpleGrading 
+	(
+	    $gr 
+	    $gr1 
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr)		
+	    )
+	) //e
+hex (9 17 5 1 31 39 27 23) ($ex $ey $zh1) 
+    simpleGrading 
+	(
+	    $gr 
+	    $gl1 
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr)		
+	    )
+	) //f
+hex (19 11 2 6 41 33 24 28) ($ex $ey $zh1) 
+    simpleGrading 
+	(
+	    $gl 
+	    $gl1 
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr)		
+	    )
+	) //g
+hex (7 3 12 20 29 25 34 42) ($ex $ey $zh1) 
+    simpleGrading 
+	(
+	    $gl 
+	    $gr1 
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr)		
+	    )
+	) //h
+hex (21 4 0 13 43 26 22 35) ($ix $iy $zh1) 
+    simpleGrading 
+	(
+	    $gr2 
+	    $gl 
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr)		
+	    )
+	) //i
+hex (10 1 5 18 32 23 27 40) ($ix $iy $zh1) 
+    simpleGrading 
+	(
+	    $gr2 
+	    $gr 
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr)		
+	    )
+	) //j
+hex (2 10 18 6 24 32 40 28) ($ix $iy $zh1) 
+    simpleGrading 
+	(
+	    1 
+	    $gr 
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr)		
+	    )
+	) //k
+hex (7 21 13 3 29 43 35 25) ($ix $iy $zh1) 
+    simpleGrading 
+	(
+	    1 
+	    $gl 
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr)		
+	    )
+	) //l
+hex (8 16 17 9 30 38 39 31) ($mx $my $zh1) 
+    simpleGrading 
+	(
+	    $gr 
+	    1 
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr)		
+	    )
+	) //m
+hex (14 8 9 15 36 30 31 37) ($nx $ny $zh1) 
+    simpleGrading 
+	(
+	    $gr2 
+	    1 
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr)		
+	    )
+	) //n
+hex (12 14 15 11 34 36 37 33) ($nx $ny $zh1) 
+    simpleGrading 
+	(
+	    1 
+	    1 
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr)		
+	    )
+	) //o
+hex (20 12 11 19 42 34 33 41) ($mx $my $zh1) 
+    simpleGrading 
+	(
+	    $gl 
+	    1 
+	    (
+		($B1y1 $B1n1 1)
+		($B1y2 $B1n2 $B1gr)		
+	    )
+	) //p
+
+//Above auger
+hex (57 44 52 58 79 66 74 80) ($ax $ay $zH) 
+    simpleGrading 
+	(
+	    $gr2 
+	    $gr1 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //a
+hex (59 53 45 54 81 75 67 76) ($ax $ay $zH) 
+    simpleGrading 
+	(
+	    $gr2 
+	    $gl1 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //b
+hex (55 59 54 46 77 81 76 68) ($ax $ay $zH) 
+    simpleGrading 
+	(
+	    1 
+	    $gl1 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //c
+hex (47 57 58 56 69 79 80 78) ($ax $ay $zH) 
+    simpleGrading 
+	(
+	    1 
+	    $gr1 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //d
+hex (44 48 60 52 66 70 82 74) ($ex $ey $zH) 
+    simpleGrading 
+	(
+	    $gr 
+	    $gr1 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //e
+hex (53 61 49 45 75 83 71 67) ($ex $ey $zH) 
+    simpleGrading 
+	(
+	    $gr 
+	    $gl1 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //f
+hex (63 55 46 50 85 77 68 72) ($ex $ey $zH) 
+    simpleGrading 
+	(
+	    $gl 
+	    $gl1 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //g
+hex (51 47 56 64 73 69 78 86) ($ex $ey $zH) 
+    simpleGrading 
+	(
+	    $gl 
+	    $gr1 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //h
+hex (65 48 44 57 87 70 66 79) ($ix $iy $zH) 
+    simpleGrading 
+	(
+	    $gr2 
+	    $gl 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //i
+hex (54 45 49 62 76 67 71 84) ($ix $iy $zH) 
+    simpleGrading 
+	(
+	    $gr2 
+	    $gr 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //j
+hex (46 54 62 50 68 76 84 72) ($ix $iy $zH) 
+    simpleGrading 
+	(
+	    1 
+	    $gr 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //k
+hex (51 65 57 47 73 87 79 69) ($ix $iy $zH) 
+    simpleGrading 
+	(
+	    1 
+	    $gl 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //l
+hex (52 60 61 53 74 82 83 75) ($mx $my $zH) 
+    simpleGrading 
+	(
+	    $gr 
+	    1 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //m
+hex (58 52 53 59 80 74 75 81) ($nx $ny $zH) 
+    simpleGrading 
+	(
+	    $gr2 
+	    1 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //n
+hex (56 58 59 55 78 80 81 77) ($nx $ny $zH) 
+    simpleGrading 
+	(
+	    1 
+	    1 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //o
+hex (64 56 55 63 86 78 77 85) ($mx $my $zH) 
+    simpleGrading 
+	(
+	    $gl 
+	    1 
+	    (
+		($B2y1 $B2n1 $B2gr)
+		($B2y2 $B2n2 1)		
+	    )
+	) //p
+
+//Auger
+hex (35 22 30 36 57 44 52 58) ($ax $ay $zh2) simpleGrading ($gr2 $gr1 1) //a
+hex (37 31 23 32 59 53 45 54) ($ax $ay $zh2) simpleGrading ($gr2 $gl1 1) //b
+hex (33 37 32 24 55 59 54 46) ($ax $ay $zh2) simpleGrading (1 $gl1 1) //c
+hex (25 35 36 34 47 57 58 56) ($ax $ay $zh2) simpleGrading (1 $gr1 1) //d
+hex (22 26 38 30 44 48 60 52) ($ex $ey $zh2) simpleGrading ($gr $gr1 1) //e
+hex (31 39 27 23 53 61 49 45) ($ex $ey $zh2) simpleGrading ($gr $gl1 1) //f
+hex (41 33 24 28 63 55 46 50) ($ex $ey $zh2) simpleGrading ($gl $gl1 1) //g
+hex (29 25 34 42 51 47 56 64) ($ex $ey $zh2) simpleGrading ($gl $gr1 1) //h
+hex (43 26 22 35 65 48 44 57) ($ix $iy $zh2) simpleGrading ($gr2 $gl 1) //i
+hex (32 23 27 40 54 45 49 62) ($ix $iy $zh2) simpleGrading ($gr2 $gr 1) //j
+hex (24 32 40 28 46 54 62 50) ($ix $iy $zh2) simpleGrading (1 $gr 1) //k
+hex (29 43 35 25 51 65 57 47) ($ix $iy $zh2) simpleGrading (1 $gl 1) //l
+
+hex (88 92 95 91 89 93 94 90) ($nx $ny $zh2) simpleGrading ($gr2 1 1) //nc
+hex (92 96 99 95 93 97 98 94) ($mx $my $zh2) simpleGrading ($gr 1 1) //mc
+hex (36 30 92 88 58 52 93 89) ($nx $ic $zh2) simpleGrading ($gr2 1 1) //ne
+hex (30 38 96 92 52 60 97 93) ($mx $ic $zh2) simpleGrading ($gr 1 1) //me
+hex (89 93 94 90 58 52 53 59) ($nx $ny $ic) simpleGrading ($gr2 1 1) //nn
+hex (93 97 98 94 52 60 61 53) ($mx $my $ic) simpleGrading ($gr 1 1) //mn
+hex (91 95 31 37 90 94 53 59) ($nx $ic $zh2) simpleGrading ($gr2 1 1) //nw
+hex (95 99 39 31 94 98 61 53) ($mx $ic $zh2) simpleGrading ($gr 1 1) //mw
+hex (36 30 31 37 88 92 95 91) ($nx $ny $ic) simpleGrading ($gr2 1 1) //ns
+hex (30 38 39 31 92 96 99 95) ($mx $my $ic) simpleGrading ($gr 1 1) //ms
+);
+
+edges
+(
+// Base
+arc 16 17 ($R 0 0)
+arc 17 5 ($x30 $y30 0)
+arc 5 18 ($x67 $y67 0)
+arc 18 6 ($x112 $y112 0)
+arc 6 19 ($x150 $y150 0)
+arc 19 20 ($Rm 0 0)
+arc 20 7 ($x210 $y210 0)
+arc 7 21 ($x247 $y247 0)
+arc 21 4 ($x292 $y292 0)
+arc 4 16 ($x330 $y330 0)
+
+//Top
+arc 82 83 ($R 0 $H)
+arc 83 71 ($x30 $y30 $H)
+arc 71 84 ($x67 $y67 $H)
+arc 84 72 ($x112 $y112 $H)
+arc 72 85 ($x150 $y150 $H)
+arc 85 86 ($Rm 0 $H)
+arc 86 73 ($x210 $y210 $H)
+arc 73 87 ($x247 $y247 $H)
+arc 87 70 ($x292 $y292 $H)
+arc 70 82 ($x330 $y330 $H)
+
+//bellow auger
+arc 38 39 ($R 0 $h1)
+arc 39 27 ($x30 $y30 $h1)
+arc 27 40 ($x67 $y67 $h1)
+arc 40 28 ($x112 $y112 $h1)
+arc 28 41 ($x150 $y150 $h1)
+//arc 19 20 ($Rm 0 0)
+arc 42 29 ($x210 $y210 $h1)
+arc 29 43 ($x247 $y247 $h1)
+arc 43 26 ($x292 $y292 $h1)
+arc 26 38 ($x330 $y330 $h1)
+
+//Above auger
+arc 60 61 ($R 0 $h2)
+arc 61 49 ($x30 $y30 $h2)
+arc 49 62 ($x67 $y67 $h2)
+arc 62 50 ($x112 $y112 $h2)
+arc 50 63 ($x150 $y150 $h2)
+//arc 19 20 ($Rm 0 0)
+arc 64 51 ($x210 $y210 $h2)
+arc 51 65 ($x247 $y247 $h2)
+arc 65 48 ($x292 $y292 $h2)
+arc 48 60 ($x330 $y330 $h2)
+
+//Small pipe
+//inner square
+arc 96 99 ($R 0 $zm)
+arc 97 98 ($R 0 $zp)
+
+//biomass surface
+arc 36 58 (0 $rm $h)
+arc 58 59 (0 0 $rt)
+arc 59 37 (0 $r $h)
+arc 37 36 (0 0 $rb)
+
+//middle
+arc 34 56 ($Sem $rm $h)
+arc 56 55 ($Sem 0 $rt)
+arc 55 33 ($Sem $r $h)
+arc 33 34 ($Sem 0 $rb)
+
+//at wall
+arc 42 64 ($rl $rm $h)
+arc 64 63 ($Rm 0 $rt)
+arc 63 41 ($rl $r $h)
+arc 41 42 ($Rm 0 $rb) 
+
+//Inner square main pipe north and south
+arc 1 10 ($cxp $cyp 0)
+arc 10 2 ($cxm $cyp 0)
+arc 3 13 ($cxm $cym 0)
+arc 13 0 ($cxp $cym 0)
+
+arc 23 32 ($cxp $cyp $h1)
+arc 32 24 ($cxm $cyp $h1)
+arc 25 35 ($cxm $cym $h1)
+arc 35 22 ($cxp $cym $h1)
+
+arc 45 54 ($cxp $cyp $h2)
+arc 54 46 ($cxm $cyp $h2)
+arc 47 57 ($cxm $cym $h2)
+arc 57 44 ($cxp $cym $h2)
+
+arc 67 76 ($cxp $cyp $H)
+arc 76 68 ($cxm $cyp $H)
+arc 69 79 ($cxm $cym $H)
+arc 79 66 ($cxp $cym $H)
+
+//East and west side
+
+arc 0 8 ($wxp $wym 0)
+arc 8 9 ($Sc 0 0)
+arc 9 1 ($wxp $wyp 0)
+arc 2 11 ($wxm $wyp 0)
+arc 11 12 ($Scm 0 0)
+arc 12 3 ($wxm $wym 0)
+
+arc 22 30 ($wxp $wym $h1)
+arc 30 31 ($Sc 0 $h1)
+arc 31 23 ($wxp $wyp $h1)
+arc 24 33 ($wxm $wyp $h1)
+//arc 33 34 ($Scm 0 $h1)
+arc 34 25 ($wxm $wym $h1)
+
+arc 44 52 ($wxp $wym $h2)
+arc 52 53 ($Sc 0 $h2)
+arc 53 45 ($wxp $wyp $h2)
+arc 46 55 ($wxm $wyp $h2)
+//arc 55 56  ($Scm 0 $h2)
+arc 56 47 ($wxm $wym $h2)
+
+arc 66 74 ($wxp $wym $H)
+arc 74 75 ($Sc 0 $H)
+arc 75 67 ($wxp $wyp $H)
+arc 68 77 ($wxm $wyp $H)
+arc 77 78 ($Scm 0 $H)
+arc 78 69 ($wxm $wym $H)
+
+arc 88 89 (0 $scm $h)
+arc 89 90 (0 0 $hsc)
+arc 90 91 (0 $sc $h)
+arc 91 88 (0 0 $hscm)
+);
+
+patches
+(
+    patch inlet
+    (
+	(0 8 14 13)
+	(9 1 10 15)
+	(15 10 2 11)
+	(13 14 12 3)
+	(4 16 8 0)
+	(17 5 1 9)
+	(11 2 6 19)
+	(3 12 20 7)
+	(4 0 13 21)
+	(1 5 18 10)
+	(10 18 6 2)
+	(21 13 3 7)
+	(16 17 9 8)
+	(8 9 15 14)
+	(14 15 11 12)
+	(12 11 19 20)
+    )
+
+    patch biomass_inlet
+    (
+	(91 90 89 88)
+	(88 89 58 36)
+	(90 59 58 89)
+	(37 59 90 91)
+	(37 91 88 36)
+    )
+
+    patch outlet
+    (
+	(66 74 80 79)
+	(75 67 76 81)
+	(81 76 68 77)
+	(79 80 78 69)
+	(70 82 74 66)
+	(83 71 67 75)
+	(77 68 72 85)
+        (69 78 86 73)
+	(70 66 79 87)
+	(67 71 84 76)
+	(76 84 72 68)
+	(87 79 69 73)
+	(82 83 75 74)
+	(74 75 81 80)
+	(80 81 77 78)
+	(78 77 85 86)
+    )
+
+    patch walls
+    (
+	(16 38 39 17)
+        (17 39 27 5)
+	(5 27 40 18)
+	(18 40 28 6)
+	(6 28 41 19)
+	(19 41 42 20)
+	(20 42 29 7)
+	(7 29 43 21)
+	(21 43 26 4)
+	(4 26 38 16)
+	
+	(60 82 83 61)
+	(61 83 71 49)
+	(49 71 84 62)
+	(62 84 72 50)
+	(50 72 85 63)
+	(63 85 86 64)
+	(64 86 73 51)
+	(51 73 87 65)
+	(65 87 70 48)
+	(48 70 82 60)
+
+	//(38 60 61 39)
+	(99 98 97 96)
+	(97 60 38 96)
+	(98 61 60 97)
+	(39 61 98 99)
+	(39 99 96 38)
+
+	(39 61 49 27)
+	(27 49 62 40)
+	(40 62 50 28)
+	(28 50 63 41)
+	(42 64 51 29)
+	(29 51 65 43)
+	(43 65 48 26)
+	(26 48 60 38)
+
+	(34 56 64 42)
+	(36 58 56 34)
+	(56 55 63 64)
+	(58 59 55 56)
+	(41 63 55 33)
+	(33 55 59 37)
+	(42 41 33 34)
+	(34 33 37 36)
+    )
+);
+
